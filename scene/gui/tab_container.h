@@ -73,6 +73,7 @@ private:
 		int icon_separation = 0;
 		int icon_max_width = 0;
 		int outline_size = 0;
+		int tab_separation = 0;
 
 		Ref<StyleBox> tab_unselected_style;
 		Ref<StyleBox> tab_hovered_style;

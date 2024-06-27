@@ -532,7 +532,7 @@ void TabBar::_draw_tab(Ref<StyleBox> &p_tab_style, Color &p_font_color, int p_in
 	RID ci = get_canvas_item();
 	bool rtl = is_layout_rtl();
 
-	Rect2 sb_rect = Rect2(p_x, 0, tabs[p_index].size_cache, get_size().height);
+	Rect2 sb_rect = Rect2(p_x + p_index * theme_cache.tab_separation, 0, tabs[p_index].size_cache, get_size().height);
 	if (tab_style_v_flip) {
 		draw_set_transform(Point2(0.0, p_tab_style->get_draw_rect(sb_rect).size.y), 0.0, Size2(1.0, -1.0));
 	}
@@ -556,12 +556,12 @@ void TabBar::_draw_tab(Ref<StyleBox> &p_tab_style, Color &p_font_color, int p_in
 		const Point2 icon_pos = Point2i(rtl ? p_x - icon_size.width : p_x, p_tab_style->get_margin(SIDE_TOP) + ((sb_rect.size.y - sb_ms.y) - icon_size.height) / 2);
 		icon->draw_rect(ci, Rect2(icon_pos, icon_size));
 
-		p_x = rtl ? p_x - icon_size.width - theme_cache.h_separation : p_x + icon_size.width + theme_cache.h_separation;
+		p_x = rtl ? p_x - icon_size.width - theme_cache.h_separation : p_x + p_index * theme_cache.tab_separation + icon_size.width + theme_cache.h_separation;
 	}
 
 	// Draw the text.
 	if (!tabs[p_index].text.is_empty()) {
-		Point2i text_pos = Point2i(rtl ? p_x - tabs[p_index].size_text : p_x,
+		Point2i text_pos = Point2i(rtl ? p_x - tabs[p_index].size_text : p_x + p_index * theme_cache.tab_separation,
 				p_tab_style->get_margin(SIDE_TOP) + ((sb_rect.size.y - sb_ms.y) - tabs[p_index].text_buf->get_size().y) / 2);
 
 		if (theme_cache.outline_size > 0 && theme_cache.font_outline_color.a > 0) {
@@ -579,7 +579,7 @@ void TabBar::_draw_tab(Ref<StyleBox> &p_tab_style, Color &p_font_color, int p_in
 
 		Rect2 rb_rect;
 		rb_rect.size = style->get_minimum_size() + rb->get_size();
-		rb_rect.position.x = rtl ? p_x - rb_rect.size.width : p_x;
+		rb_rect.position.x = rtl ? p_x - rb_rect.size.width : p_x + p_index * theme_cache.tab_separation;
 		rb_rect.position.y = p_tab_style->get_margin(SIDE_TOP) + ((sb_rect.size.y - sb_ms.y) - (rb_rect.size.y)) / 2;
 
 		tabs.write[p_index].rb_rect = rb_rect;
@@ -606,7 +606,7 @@ void TabBar::_draw_tab(Ref<StyleBox> &p_tab_style, Color &p_font_color, int p_in
 
 		Rect2 cb_rect;
 		cb_rect.size = style->get_minimum_size() + cb->get_size();
-		cb_rect.position.x = rtl ? p_x - cb_rect.size.width : p_x;
+		cb_rect.position.x = rtl ? p_x - cb_rect.size.width : p_x + p_index * theme_cache.tab_separation;
 		cb_rect.position.y = p_tab_style->get_margin(SIDE_TOP) + ((sb_rect.size.y - sb_ms.y) - (cb_rect.size.y)) / 2;
 
 		tabs.write[p_index].cb_rect = cb_rect;
@@ -1009,8 +1009,8 @@ void TabBar::_update_cache(bool p_update_hover) {
 		return;
 	}
 
-	int limit = get_size().width;
-	int limit_minus_buttons = limit - theme_cache.increment_icon->get_width() - theme_cache.decrement_icon->get_width();
+	int limit = get_size().width + (tabs.size() - 1) * theme_cache.tab_separation;
+	int limit_minus_buttons = limit - theme_cache.increment_icon->get_width() - theme_cache.decrement_icon->get_width() - (tabs.size() - 1) * theme_cache.tab_separation;
 
 	int w = 0;
 
@@ -1043,6 +1043,9 @@ void TabBar::_update_cache(bool p_update_hover) {
 		}
 
 		w += tabs[i].size_cache;
+		if (i < max_drawn_tab) {
+			w += theme_cache.tab_separation;
+		}
 
 		// Check if all tabs would fit inside the area.
 		if (clip_tabs && i > offset && (w > limit || (offset > 0 && w > limit_minus_buttons))) {
@@ -1073,10 +1076,11 @@ void TabBar::_update_cache(bool p_update_hover) {
 		return;
 	}
 
+	int total_tab_separation = max_drawn_tab * theme_cache.tab_separation;
 	if (tab_alignment == ALIGNMENT_CENTER) {
-		w = ((buttons_visible ? limit_minus_buttons : limit) - w) / 2;
+		w = ((buttons_visible ? limit_minus_buttons : limit) - w - total_tab_separation) / 2;
 	} else if (tab_alignment == ALIGNMENT_RIGHT) {
-		w = (buttons_visible ? limit_minus_buttons : limit) - w;
+		w = (buttons_visible ? limit_minus_buttons : limit) - w - total_tab_separation;
 	}
 
 	for (int i = offset; i <= max_drawn_tab; i++) {
@@ -1639,7 +1643,7 @@ Rect2 TabBar::get_tab_rect(int p_tab) const {
 	if (is_layout_rtl()) {
 		return Rect2(get_size().width - tabs[p_tab].ofs_cache - tabs[p_tab].size_cache, 0, tabs[p_tab].size_cache, get_size().height);
 	} else {
-		return Rect2(tabs[p_tab].ofs_cache, 0, tabs[p_tab].size_cache, get_size().height);
+		return Rect2(tabs[p_tab].ofs_cache + p_tab * theme_cache.tab_separation, 0, tabs[p_tab].size_cache, get_size().height);
 	}
 }
 
@@ -1836,6 +1840,7 @@ void TabBar::_bind_methods() {
 	BIND_ENUM_CONSTANT(CLOSE_BUTTON_MAX);
 
 	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, TabBar, h_separation);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, TabBar, tab_separation);
 	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, TabBar, icon_max_width);
 
 	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_STYLEBOX, TabBar, tab_unselected_style, "tab_unselected");
